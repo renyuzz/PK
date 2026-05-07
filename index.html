@@ -1,485 +1,528 @@
-import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, Trash2, RefreshCw, Trophy, AlertCircle, DollarSign, ArrowRight, Play, RotateCcw } from 'lucide-react';
-
-export default function App() {
-  // 狀態管理
-  const [players, setPlayers] = useState([]);
-  const [newPlayerName, setNewPlayerName] = useState('');
-  const [gameState, setGameState] = useState('setup'); // 'setup', 'playing', 'finished'
-  const [currentRound, setCurrentRound] = useState(1);
-  const [team1, setTeam1] = useState([]);
-  const [team2, setTeam2] = useState([]);
-  const [history, setHistory] = useState([]);
-  const [dialogState, setDialogState] = useState({ type: null, message: '', data: null }); // 自訂彈出視窗狀態
-
-  const TOTAL_ROUNDS = 3;
-  const PENALTY_FEE = 50;
-
-  // 關閉對話框
-  const closeDialog = () => setDialogState({ type: null, message: '', data: null });
-
-  // 結算確認
-  const confirmSettle = () => {
-    if (dialogState.data) {
-      handleRoundResult(dialogState.data);
-    }
-    closeDialog();
-  };
-
-  // 新增玩家
-  const handleAddPlayer = (e) => {
-    e.preventDefault();
-    if (!newPlayerName.trim()) return;
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>對戰分組計費系統</title>
     
-    // 檢查是否重複
-    if (players.some(p => p.name === newPlayerName.trim())) {
-      setDialogState({ type: 'alert', message: '玩家名稱已存在！' });
-      return;
-    }
-
-    setPlayers([...players, { 
-      id: Date.now().toString(), 
-      name: newPlayerName.trim(), 
-      penalty: 0 
-    }]);
-    setNewPlayerName('');
-  };
-
-  // 移除玩家
-  const handleRemovePlayer = (id) => {
-    setPlayers(players.filter(p => p.id !== id));
-  };
-
-  // 開始遊戲
-  const startGame = () => {
-    if (players.length < 2) {
-      setDialogState({ type: 'alert', message: '至少需要2名玩家才能開始遊戲！' });
-      return;
-    }
-    setGameState('playing');
-    setCurrentRound(1);
-    setHistory([]);
-    // 重置所有人的罰金
-    setPlayers(players.map(p => ({ ...p, penalty: 0 })));
-    setTeam1([]);
-    setTeam2([]);
-  };
-
-  // 隨機陣列 (Fisher-Yates Shuffle)
-  const shuffleArray = (array) => {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
-
-  // 產生隊伍
-  const generateTeams = () => {
-    const shuffledPlayers = shuffleArray(players);
-    const midPoint = Math.ceil(shuffledPlayers.length / 2);
-    // 新增 score 屬性以記錄各玩家分數 (預設為空字串方便輸入)
-    setTeam1(shuffledPlayers.slice(0, midPoint).map(p => ({ ...p, score: '' })));
-    setTeam2(shuffledPlayers.slice(midPoint).map(p => ({ ...p, score: '' })));
-  };
-
-  // 處理玩家分數變更
-  const handleScoreChange = (teamNum, playerId, scoreValue) => {
-    if (teamNum === 1) {
-      setTeam1(team1.map(p => p.id === playerId ? { ...p, score: scoreValue } : p));
-    } else {
-      setTeam2(team2.map(p => p.id === playerId ? { ...p, score: scoreValue } : p));
-    }
-  };
-
-  // 依據分數結算本局
-  const handleSettleRound = () => {
-    const t1Total = team1.reduce((sum, p) => sum + (Number(p.score) || 0), 0);
-    const t2Total = team2.reduce((sum, p) => sum + (Number(p.score) || 0), 0);
-
-    if (t1Total === t2Total) {
-      setDialogState({ type: 'alert', message: '目前兩隊總分平手，請確認分數或調整後再結算！' });
-      return;
-    }
-
-    const losingTeam = t1Total < t2Total ? 1 : 2;
+    <!-- 引入 Tailwind CSS (用於快速排版與樣式) -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    setDialogState({
-      type: 'confirm',
-      message: `【結算確認】\n第一隊總分: ${t1Total}\n第二隊總分: ${t2Total}\n\n判定【第 ${losingTeam} 隊】輸了！\n確定要結算並加上罰金嗎？`,
-      data: losingTeam
-    });
-  };
-
-  // 記錄該局結果
-  const handleRoundResult = (losingTeam) => {
-    const losingPlayers = losingTeam === 1 ? team1 : team2;
-    const losingPlayerIds = losingPlayers.map(p => p.id);
-
-    // 更新玩家罰金
-    const updatedPlayers = players.map(player => {
-      if (losingPlayerIds.includes(player.id)) {
-        return { ...player, penalty: player.penalty + PENALTY_FEE };
-      }
-      return player;
-    });
-
-    setPlayers(updatedPlayers);
+    <!-- 引入 FontAwesome 圖示庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    // 記錄歷史
-    setHistory([...history, {
-      round: currentRound,
-      losingTeam: losingTeam,
-      team1: team1.map(p => p.name),
-      team2: team2.map(p => p.name)
-    }]);
+    <!-- 引入 React 與 ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 引入 Babel 來在瀏覽器內即時編譯 JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    // 進入下一局或結束
-    if (currentRound >= TOTAL_ROUNDS) {
-      setGameState('finished');
-    } else {
-      setCurrentRound(currentRound + 1);
-      setTeam1([]); // 清空隊伍等待重新分配
-      setTeam2([]);
-    }
-  };
-
-  // 重新開始新的一輪（保留玩家）
-  const restartGame = () => {
-    setGameState('setup');
-    setCurrentRound(1);
-    setTeam1([]);
-    setTeam2([]);
-    setHistory([]);
-    setPlayers(players.map(p => ({ ...p, penalty: 0 })));
-  };
-
-  // 渲染設定階段 (加入玩家)
-  const renderSetup = () => (
-    <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 max-w-2xl mx-auto border border-slate-100">
-      <div className="text-center mb-8">
-        <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Users className="text-indigo-600 w-8 h-8" />
+    <style>
+        /* 彈出視窗的簡單過渡動畫 */
+        .fade-in { animation: fadeIn 0.2s ease-in-out; }
+        .zoom-in { animation: zoomIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes zoomIn { from { transform: scale(0.95); } to { transform: scale(1); } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen">
+    <div id="root">
+        <!-- 網頁載入時的過渡畫面 -->
+        <div class="flex items-center justify-center min-h-screen text-slate-500">
+            <i class="fa-solid fa-circle-notch fa-spin text-3xl mr-3"></i> 系統載入中...
         </div>
-        <h2 className="text-2xl font-bold text-slate-800">新增玩家</h2>
-        <p className="text-slate-500 mt-2">請輸入所有參與者的名字，進行隨機分組。</p>
-      </div>
-
-      <form onSubmit={handleAddPlayer} className="flex gap-2 mb-8">
-        <input
-          type="text"
-          value={newPlayerName}
-          onChange={(e) => setNewPlayerName(e.target.value)}
-          placeholder="輸入玩家名稱..."
-          className="flex-1 px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-        />
-        <button 
-          type="submit"
-          disabled={!newPlayerName.trim()}
-          className="bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors font-medium"
-        >
-          <UserPlus size={20} />
-          <span className="hidden sm:inline">新增</span>
-        </button>
-      </form>
-
-      <div className="bg-slate-50 rounded-xl p-4 min-h-[200px]">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center justify-between">
-          <span>目前玩家清單</span>
-          <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full text-xs">
-            共 {players.length} 人
-          </span>
-        </h3>
-        
-        {players.length === 0 ? (
-          <div className="text-center text-slate-400 py-8 flex flex-col items-center">
-            <AlertCircle className="w-8 h-8 mb-2 opacity-50" />
-            <p>尚無玩家，請從上方新增</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {players.map(player => (
-              <div key={player.id} className="bg-white border border-slate-200 px-4 py-3 rounded-lg flex justify-between items-center shadow-sm">
-                <span className="font-medium text-slate-700">{player.name}</span>
-                <button 
-                  onClick={() => handleRemovePlayer(player.id)}
-                  className="text-red-400 hover:text-red-600 p-1 rounded-md hover:bg-red-50 transition-colors"
-                  title="移除玩家"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-8 text-center">
-        <button
-          onClick={startGame}
-          disabled={players.length < 2}
-          className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 mx-auto"
-        >
-          <Play size={24} />
-          開始三局對戰
-        </button>
-      </div>
     </div>
-  );
 
-  // 渲染遊戲進行中
-  const renderPlaying = () => {
-    // 即時計算兩隊總分
-    const t1Total = team1.reduce((sum, p) => sum + (Number(p.score) || 0), 0);
-    const t2Total = team2.reduce((sum, p) => sum + (Number(p.score) || 0), 0);
+    <script type="text/babel">
+        const { useState, useEffect } = React;
 
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-          <div>
-            <h2 className="text-3xl font-extrabold text-slate-800">
-              第 <span className="text-indigo-600 text-4xl">{currentRound}</span> / {TOTAL_ROUNDS} 局
-            </h2>
-            <p className="text-slate-500 mt-1">輸的隊伍每人將繳交 ${PENALTY_FEE}</p>
-          </div>
-          
-          <button
-            onClick={generateTeams}
-            className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-colors w-full sm:w-auto justify-center"
-          >
-            <RefreshCw size={20} className={team1.length === 0 ? "animate-pulse" : ""} />
-            {team1.length === 0 ? '隨機產生隊伍' : '重新隨機分組'}
-          </button>
-        </div>
+        function App() {
+            // 狀態管理
+            const [players, setPlayers] = useState([]);
+            const [newPlayerName, setNewPlayerName] = useState('');
+            const [gameState, setGameState] = useState('setup'); // 'setup', 'playing', 'finished'
+            const [currentRound, setCurrentRound] = useState(1);
+            const [team1, setTeam1] = useState([]);
+            const [team2, setTeam2] = useState([]);
+            const [history, setHistory] = useState([]);
+            const [dialogState, setDialogState] = useState({ type: null, message: '', data: null }); // 自訂彈出視窗狀態
 
-        {team1.length > 0 ? (
-          <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6 md:gap-10">
-              {/* 隊伍 1 */}
-              <div className="bg-white rounded-2xl shadow-lg border-t-8 border-rose-500 overflow-hidden flex flex-col">
-                <div className="p-6 bg-rose-50 border-b border-rose-100 flex justify-between items-center">
-                  <h3 className="text-xl font-bold text-rose-700">第一隊</h3>
-                  <div className="flex items-center gap-3">
-                    <span className="bg-rose-200 text-rose-800 text-xs font-bold px-3 py-1 rounded-full">{team1.length} 人</span>
-                    <span className="bg-rose-600 text-white text-sm font-bold px-3 py-1 rounded-lg shadow-sm">總分: {t1Total}</span>
-                  </div>
-                </div>
-                <div className="p-6 flex-1">
-                  <ul className="space-y-3">
-                    {team1.map(p => (
-                      <li key={p.id} className="flex items-center justify-between text-lg font-medium text-slate-700 bg-slate-50 px-4 py-2 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">
-                            {p.name.charAt(0)}
-                          </div>
-                          {p.name}
-                        </div>
-                        <input
-                          type="number"
-                          value={p.score}
-                          onChange={(e) => handleScoreChange(1, p.id, e.target.value)}
-                          placeholder="分數"
-                          className="w-24 px-3 py-1 text-right rounded-md border border-slate-300 focus:ring-2 focus:ring-rose-400 focus:outline-none bg-white"
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+            const TOTAL_ROUNDS = 3;
+            const PENALTY_FEE = 50;
 
-              {/* 隊伍 2 */}
-              <div className="bg-white rounded-2xl shadow-lg border-t-8 border-blue-500 overflow-hidden flex flex-col">
-                <div className="p-6 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
-                  <h3 className="text-xl font-bold text-blue-700">第二隊</h3>
-                  <div className="flex items-center gap-3">
-                    <span className="bg-blue-200 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">{team2.length} 人</span>
-                    <span className="bg-blue-600 text-white text-sm font-bold px-3 py-1 rounded-lg shadow-sm">總分: {t2Total}</span>
-                  </div>
-                </div>
-                <div className="p-6 flex-1">
-                  <ul className="space-y-3">
-                    {team2.map(p => (
-                      <li key={p.id} className="flex items-center justify-between text-lg font-medium text-slate-700 bg-slate-50 px-4 py-2 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">
-                            {p.name.charAt(0)}
-                          </div>
-                          {p.name}
-                        </div>
-                        <input
-                          type="number"
-                          value={p.score}
-                          onChange={(e) => handleScoreChange(2, p.id, e.target.value)}
-                          placeholder="分數"
-                          className="w-24 px-3 py-1 text-right rounded-md border border-slate-300 focus:ring-2 focus:ring-blue-400 focus:outline-none bg-white"
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-center mt-4">
-              <button
-                onClick={handleSettleRound}
-                className="bg-slate-800 hover:bg-slate-900 text-white px-8 py-4 rounded-xl font-bold text-lg transition-colors shadow-lg flex items-center justify-center gap-2 w-full md:w-auto"
-              >
-                <Trophy size={20} className="text-yellow-400" />
-                結算本局
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center text-slate-500">
-            <RefreshCw size={48} className="mx-auto mb-4 text-slate-300" />
-            <p className="text-xl font-medium mb-2">尚未分組</p>
-            <p>請點擊右上方「隨機產生隊伍」按鈕開始本局。</p>
-          </div>
-        )}
-        
-        {/* 顯示目前的累積金額 */}
-        <div className="mt-10 bg-slate-800 text-white rounded-2xl p-6 shadow-xl">
-          <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-200">
-            <DollarSign size={20} className="text-emerald-400" />
-            目前累積費用
-          </h3>
-          <div className="flex flex-wrap gap-3">
-            {players.map(p => (
-              <div key={`penalty-${p.id}`} className="bg-slate-700 px-4 py-2 rounded-lg flex items-center gap-3">
-                <span className="font-medium">{p.name}</span>
-                <span className={`font-bold ${p.penalty > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                  ${p.penalty}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
+            // 關閉對話框
+            const closeDialog = () => setDialogState({ type: null, message: '', data: null });
 
-  // 渲染結算畫面
-  const renderFinished = () => {
-    // 依據罰金由高到低排序
-    const sortedPlayers = [...players].sort((a, b) => b.penalty - a.penalty);
-    const totalPool = players.reduce((sum, p) => sum + p.penalty, 0);
+            // 結算確認
+            const confirmSettle = () => {
+                if (dialogState.data) {
+                handleRoundResult(dialogState.data);
+                }
+                closeDialog();
+            };
 
-    return (
-      <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
-        <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-10 text-center text-white relative overflow-hidden">
-          <Trophy size={64} className="mx-auto mb-4 text-yellow-300 drop-shadow-md" />
-          <h2 className="text-4xl font-extrabold mb-2">遊戲結束！最終結算</h2>
-          <p className="text-indigo-100 text-lg opacity-90">三局比賽已完成，總計：<span className="font-bold text-yellow-300 text-2xl">${totalPool}</span></p>
-          
-          {/* 裝飾背景 */}
-          <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent" />
-        </div>
+            // 新增玩家
+            const handleAddPlayer = (e) => {
+                e.preventDefault();
+                if (!newPlayerName.trim()) return;
+                
+                // 檢查是否重複
+                if (players.some(p => p.name === newPlayerName.trim())) {
+                setDialogState({ type: 'alert', message: '玩家名稱已存在！' });
+                return;
+                }
 
-        <div className="p-8">
-          <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <DollarSign className="text-indigo-600" /> 每人應繳金額清單
-          </h3>
-          
-          <div className="space-y-3 mb-10">
-            {sortedPlayers.map((p, index) => (
-              <div 
-                key={p.id} 
-                className={`flex items-center justify-between p-4 rounded-xl border ${p.penalty > 0 ? 'bg-rose-50 border-rose-100' : 'bg-emerald-50 border-emerald-100'}`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${p.penalty > 0 ? 'bg-rose-200 text-rose-700' : 'bg-emerald-200 text-emerald-700'}`}>
-                    {index + 1}
-                  </div>
-                  <span className="text-lg font-semibold text-slate-800">{p.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-500">需繳交</span>
-                  <span className={`text-2xl font-extrabold ${p.penalty > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                    ${p.penalty}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+                setPlayers([...players, { 
+                id: Date.now().toString(), 
+                name: newPlayerName.trim(), 
+                penalty: 0 
+                }]);
+                setNewPlayerName('');
+            };
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={restartGame}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition-colors shadow-lg flex items-center justify-center gap-2"
-            >
-              <RotateCcw size={20} />
-              保留原班人馬再玩一次
-            </button>
-            <button
-              onClick={() => {
-                setGameState('setup');
-                setPlayers([]);
-                setHistory([]);
+            // 移除玩家
+            const handleRemovePlayer = (id) => {
+                setPlayers(players.filter(p => p.id !== id));
+            };
+
+            // 開始遊戲
+            const startGame = () => {
+                if (players.length < 2) {
+                setDialogState({ type: 'alert', message: '至少需要2名玩家才能開始遊戲！' });
+                return;
+                }
+                setGameState('playing');
                 setCurrentRound(1);
-              }}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-8 py-4 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2"
-            >
-              <Users size={20} />
-              重新設定玩家
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
+                setHistory([]);
+                // 重置所有人的罰金
+                setPlayers(players.map(p => ({ ...p, penalty: 0 })));
+                setTeam1([]);
+                setTeam2([]);
+            };
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 md:p-8 relative">
-      {/* 標頭 */}
-      <header className="max-w-5xl mx-auto mb-8 flex items-center gap-3">
-        <div className="bg-gradient-to-tr from-indigo-600 to-purple-600 p-2 rounded-lg text-white shadow-md">
-          <Trophy size={28} />
-        </div>
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">
-            對戰分組計費系統
-          </h1>
-          <p className="text-slate-500 text-sm md:text-base"></p>
-        </div>
-      </header>
+            // 隨機陣列 (Fisher-Yates Shuffle)
+            const shuffleArray = (array) => {
+                const shuffled = [...array];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                return shuffled;
+            };
 
-      {/* 主要內容區 */}
-      <main className="max-w-5xl mx-auto">
-        {gameState === 'setup' && renderSetup()}
-        {gameState === 'playing' && renderPlaying()}
-        {gameState === 'finished' && renderFinished()}
-      </main>
+            // 產生隊伍
+            const generateTeams = () => {
+                const shuffledPlayers = shuffleArray(players);
+                const midPoint = Math.ceil(shuffledPlayers.length / 2);
+                // 新增 score 屬性以記錄各玩家分數 (預設為空字串方便輸入)
+                setTeam1(shuffledPlayers.slice(0, midPoint).map(p => ({ ...p, score: '' })));
+                setTeam2(shuffledPlayers.slice(midPoint).map(p => ({ ...p, score: '' })));
+            };
 
-      {/* 自訂彈出視窗 */}
-      {dialogState.type && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-sm w-full animate-in fade-in zoom-in duration-200">
-            <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-              {dialogState.type === 'alert' ? <AlertCircle className="text-rose-500" /> : <Trophy className="text-yellow-500" />}
-              {dialogState.type === 'alert' ? '系統提示' : '結算確認'}
-            </h3>
-            <p className="text-slate-600 whitespace-pre-wrap mb-8 text-lg">{dialogState.message}</p>
-            <div className="flex gap-3 justify-end">
-              {dialogState.type === 'confirm' && (
-                <button
-                  onClick={closeDialog}
-                  className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
-                >
-                  取消
-                </button>
-              )}
-              <button
-                onClick={dialogState.type === 'alert' ? closeDialog : confirmSettle}
-                className="px-5 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-md"
-              >
-                確定
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+            // 處理玩家分數變更
+            const handleScoreChange = (teamNum, playerId, scoreValue) => {
+                if (teamNum === 1) {
+                setTeam1(team1.map(p => p.id === playerId ? { ...p, score: scoreValue } : p));
+                } else {
+                setTeam2(team2.map(p => p.id === playerId ? { ...p, score: scoreValue } : p));
+                }
+            };
+
+            // 依據分數結算本局
+            const handleSettleRound = () => {
+                const t1Total = team1.reduce((sum, p) => sum + (Number(p.score) || 0), 0);
+                const t2Total = team2.reduce((sum, p) => sum + (Number(p.score) || 0), 0);
+
+                if (t1Total === t2Total) {
+                setDialogState({ type: 'alert', message: '目前兩隊總分平手，請確認分數或調整後再結算！' });
+                return;
+                }
+
+                const losingTeam = t1Total < t2Total ? 1 : 2;
+                
+                setDialogState({
+                type: 'confirm',
+                message: `【結算確認】\n第一隊總分: ${t1Total}\n第二隊總分: ${t2Total}\n\n判定【第 ${losingTeam} 隊】輸了！\n確定要結算並加上罰金嗎？`,
+                data: losingTeam
+                });
+            };
+
+            // 記錄該局結果
+            const handleRoundResult = (losingTeam) => {
+                const losingPlayers = losingTeam === 1 ? team1 : team2;
+                const losingPlayerIds = losingPlayers.map(p => p.id);
+
+                // 更新玩家罰金
+                const updatedPlayers = players.map(player => {
+                if (losingPlayerIds.includes(player.id)) {
+                    return { ...player, penalty: player.penalty + PENALTY_FEE };
+                }
+                return player;
+                });
+
+                setPlayers(updatedPlayers);
+                
+                // 記錄歷史
+                setHistory([...history, {
+                round: currentRound,
+                losingTeam: losingTeam,
+                team1: team1.map(p => p.name),
+                team2: team2.map(p => p.name)
+                }]);
+
+                // 進入下一局或結束
+                if (currentRound >= TOTAL_ROUNDS) {
+                setGameState('finished');
+                } else {
+                setCurrentRound(currentRound + 1);
+                setTeam1([]); // 清空隊伍等待重新分配
+                setTeam2([]);
+                }
+            };
+
+            // 重新開始新的一輪（保留玩家）
+            const restartGame = () => {
+                setGameState('setup');
+                setCurrentRound(1);
+                setTeam1([]);
+                setTeam2([]);
+                setHistory([]);
+                setPlayers(players.map(p => ({ ...p, penalty: 0 })));
+            };
+
+            // 渲染設定階段 (加入玩家)
+            const renderSetup = () => (
+                <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 max-w-2xl mx-auto border border-slate-100">
+                <div className="text-center mb-8">
+                    <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i className="fa-solid fa-users text-indigo-600 text-3xl"></i>
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-800">新增玩家</h2>
+                    <p className="text-slate-500 mt-2">請輸入所有參與者的名字，進行隨機分組。</p>
+                </div>
+
+                <form onSubmit={handleAddPlayer} className="flex gap-2 mb-8">
+                    <input
+                    type="text"
+                    value={newPlayerName}
+                    onChange={(e) => setNewPlayerName(e.target.value)}
+                    placeholder="輸入玩家名稱..."
+                    className="flex-1 px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    />
+                    <button 
+                    type="submit"
+                    disabled={!newPlayerName.trim()}
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors font-medium"
+                    >
+                    <i className="fa-solid fa-user-plus text-xl"></i>
+                    <span className="hidden sm:inline">新增</span>
+                    </button>
+                </form>
+
+                <div className="bg-slate-50 rounded-xl p-4 min-h-[200px]">
+                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center justify-between">
+                    <span>目前玩家清單</span>
+                    <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full text-xs">
+                        共 {players.length} 人
+                    </span>
+                    </h3>
+                    
+                    {players.length === 0 ? (
+                    <div className="text-center text-slate-400 py-8 flex flex-col items-center">
+                        <i className="fa-solid fa-circle-exclamation text-3xl mb-2 opacity-50 block"></i>
+                        <p>尚無玩家，請從上方新增</p>
+                    </div>
+                    ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {players.map(player => (
+                        <div key={player.id} className="bg-white border border-slate-200 px-4 py-3 rounded-lg flex justify-between items-center shadow-sm">
+                            <span className="font-medium text-slate-700">{player.name}</span>
+                            <button 
+                            onClick={() => handleRemovePlayer(player.id)}
+                            className="text-red-400 hover:text-red-600 p-1 rounded-md hover:bg-red-50 transition-colors"
+                            title="移除玩家"
+                            >
+                            <i className="fa-solid fa-trash text-lg"></i>
+                            </button>
+                        </div>
+                        ))}
+                    </div>
+                    )}
+                </div>
+
+                <div className="mt-8 text-center">
+                    <button
+                    onClick={startGame}
+                    disabled={players.length < 2}
+                    className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 mx-auto"
+                    >
+                    <i className="fa-solid fa-play text-2xl"></i>
+                    開始三局對戰
+                    </button>
+                </div>
+                </div>
+            );
+
+            // 渲染遊戲進行中
+            const renderPlaying = () => {
+                // 即時計算兩隊總分
+                const t1Total = team1.reduce((sum, p) => sum + (Number(p.score) || 0), 0);
+                const t2Total = team2.reduce((sum, p) => sum + (Number(p.score) || 0), 0);
+
+                return (
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+                    <div>
+                        <h2 className="text-3xl font-extrabold text-slate-800">
+                        第 <span className="text-indigo-600 text-4xl">{currentRound}</span> / {TOTAL_ROUNDS} 局
+                        </h2>
+                        <p className="text-slate-500 mt-1">輸的隊伍每人將繳交 ${PENALTY_FEE}</p>
+                    </div>
+                    
+                    <button
+                        onClick={generateTeams}
+                        className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-colors w-full sm:w-auto justify-center"
+                    >
+                        <i className={"fa-solid fa-arrows-rotate text-xl " + (team1.length === 0 ? "animate-pulse" : "")}></i>
+                        {team1.length === 0 ? '隨機產生隊伍' : '重新隨機分組'}
+                    </button>
+                    </div>
+
+                    {team1.length > 0 ? (
+                    <div className="space-y-6">
+                        <div className="grid md:grid-cols-2 gap-6 md:gap-10">
+                        {/* 隊伍 1 */}
+                        <div className="bg-white rounded-2xl shadow-lg border-t-8 border-rose-500 overflow-hidden flex flex-col">
+                            <div className="p-6 bg-rose-50 border-b border-rose-100 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-rose-700">第一隊</h3>
+                            <div className="flex items-center gap-3">
+                                <span className="bg-rose-200 text-rose-800 text-xs font-bold px-3 py-1 rounded-full">{team1.length} 人</span>
+                                <span className="bg-rose-600 text-white text-sm font-bold px-3 py-1 rounded-lg shadow-sm">總分: {t1Total}</span>
+                            </div>
+                            </div>
+                            <div className="p-6 flex-1">
+                            <ul className="space-y-3">
+                                {team1.map(p => (
+                                <li key={p.id} className="flex items-center justify-between text-lg font-medium text-slate-700 bg-slate-50 px-4 py-2 rounded-lg">
+                                    <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">
+                                        {p.name.charAt(0)}
+                                    </div>
+                                    {p.name}
+                                    </div>
+                                    <input
+                                    type="number"
+                                    value={p.score}
+                                    onChange={(e) => handleScoreChange(1, p.id, e.target.value)}
+                                    placeholder="分數"
+                                    className="w-24 px-3 py-1 text-right rounded-md border border-slate-300 focus:ring-2 focus:ring-rose-400 focus:outline-none bg-white"
+                                    />
+                                </li>
+                                ))}
+                            </ul>
+                            </div>
+                        </div>
+
+                        {/* 隊伍 2 */}
+                        <div className="bg-white rounded-2xl shadow-lg border-t-8 border-blue-500 overflow-hidden flex flex-col">
+                            <div className="p-6 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-blue-700">第二隊</h3>
+                            <div className="flex items-center gap-3">
+                                <span className="bg-blue-200 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">{team2.length} 人</span>
+                                <span className="bg-blue-600 text-white text-sm font-bold px-3 py-1 rounded-lg shadow-sm">總分: {t2Total}</span>
+                            </div>
+                            </div>
+                            <div className="p-6 flex-1">
+                            <ul className="space-y-3">
+                                {team2.map(p => (
+                                <li key={p.id} className="flex items-center justify-between text-lg font-medium text-slate-700 bg-slate-50 px-4 py-2 rounded-lg">
+                                    <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">
+                                        {p.name.charAt(0)}
+                                    </div>
+                                    {p.name}
+                                    </div>
+                                    <input
+                                    type="number"
+                                    value={p.score}
+                                    onChange={(e) => handleScoreChange(2, p.id, e.target.value)}
+                                    placeholder="分數"
+                                    className="w-24 px-3 py-1 text-right rounded-md border border-slate-300 focus:ring-2 focus:ring-blue-400 focus:outline-none bg-white"
+                                    />
+                                </li>
+                                ))}
+                            </ul>
+                            </div>
+                        </div>
+                        </div>
+                        
+                        <div className="flex justify-center mt-4">
+                        <button
+                            onClick={handleSettleRound}
+                            className="bg-slate-800 hover:bg-slate-900 text-white px-8 py-4 rounded-xl font-bold text-lg transition-colors shadow-lg flex items-center justify-center gap-2 w-full md:w-auto"
+                        >
+                            <i className="fa-solid fa-trophy text-xl text-yellow-400"></i>
+                            結算本局
+                        </button>
+                        </div>
+                    </div>
+                    ) : (
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center text-slate-500">
+                        <i className="fa-solid fa-arrows-rotate text-5xl mx-auto mb-4 text-slate-300 block"></i>
+                        <p className="text-xl font-medium mb-2">尚未分組</p>
+                        <p>請點擊右上方「隨機產生隊伍」按鈕開始本局。</p>
+                    </div>
+                    )}
+                    
+                    {/* 顯示目前的累積金額 */}
+                    <div className="mt-10 bg-slate-800 text-white rounded-2xl p-6 shadow-xl">
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-200">
+                        <i className="fa-solid fa-dollar-sign text-xl text-emerald-400"></i>
+                        目前累積費用
+                    </h3>
+                    <div className="flex flex-wrap gap-3">
+                        {players.map(p => (
+                        <div key={`penalty-${p.id}`} className="bg-slate-700 px-4 py-2 rounded-lg flex items-center gap-3">
+                            <span className="font-medium">{p.name}</span>
+                            <span className={`font-bold ${p.penalty > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            ${p.penalty}
+                            </span>
+                        </div>
+                        ))}
+                    </div>
+                    </div>
+                </div>
+                );
+            };
+
+            // 渲染結算畫面
+            const renderFinished = () => {
+                // 依據罰金由高到低排序
+                const sortedPlayers = [...players].sort((a, b) => b.penalty - a.penalty);
+                const totalPool = players.reduce((sum, p) => sum + p.penalty, 0);
+
+                return (
+                <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
+                    <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-10 text-center text-white relative overflow-hidden">
+                    <i className="fa-solid fa-trophy text-6xl mx-auto mb-4 text-yellow-300 drop-shadow-md block"></i>
+                    <h2 className="text-4xl font-extrabold mb-2">遊戲結束！最終結算</h2>
+                    <p className="text-indigo-100 text-lg opacity-90">三局比賽已完成，總計：<span className="font-bold text-yellow-300 text-2xl">${totalPool}</span></p>
+                    
+                    {/* 裝飾背景 */}
+                    <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent" />
+                    </div>
+
+                    <div className="p-8">
+                    <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <i className="fa-solid fa-dollar-sign text-indigo-600"></i> 每人應繳金額清單
+                    </h3>
+                    
+                    <div className="space-y-3 mb-10">
+                        {sortedPlayers.map((p, index) => (
+                        <div 
+                            key={p.id} 
+                            className={`flex items-center justify-between p-4 rounded-xl border ${p.penalty > 0 ? 'bg-rose-50 border-rose-100' : 'bg-emerald-50 border-emerald-100'}`}
+                        >
+                            <div className="flex items-center gap-4">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${p.penalty > 0 ? 'bg-rose-200 text-rose-700' : 'bg-emerald-200 text-emerald-700'}`}>
+                                {index + 1}
+                            </div>
+                            <span className="text-lg font-semibold text-slate-800">{p.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                            <span className="text-sm text-slate-500">需繳交</span>
+                            <span className={`text-2xl font-extrabold ${p.penalty > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                ${p.penalty}
+                            </span>
+                            </div>
+                        </div>
+                        ))}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button
+                        onClick={restartGame}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition-colors shadow-lg flex items-center justify-center gap-2"
+                        >
+                        <i className="fa-solid fa-rotate-left text-xl"></i>
+                        保留原班人馬再玩一次
+                        </button>
+                        <button
+                        onClick={() => {
+                            setGameState('setup');
+                            setPlayers([]);
+                            setHistory([]);
+                            setCurrentRound(1);
+                        }}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-8 py-4 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2"
+                        >
+                        <i className="fa-solid fa-users text-xl"></i>
+                        重新設定玩家
+                        </button>
+                    </div>
+                    </div>
+                </div>
+                );
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 md:p-8 relative">
+                {/* 標頭 */}
+                <header className="max-w-5xl mx-auto mb-8 flex items-center gap-3">
+                    <div className="bg-gradient-to-tr from-indigo-600 to-purple-600 p-2 rounded-lg text-white shadow-md">
+                    <i className="fa-solid fa-trophy text-3xl p-1"></i>
+                    </div>
+                    <div>
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">
+                        對戰分組計費系統
+                    </h1>
+                    <p className="text-slate-500 text-sm md:text-base"/p>
+                    </div>
+                </header>
+
+                {/* 主要內容區 */}
+                <main className="max-w-5xl mx-auto">
+                    {gameState === 'setup' && renderSetup()}
+                    {gameState === 'playing' && renderPlaying()}
+                    {gameState === 'finished' && renderFinished()}
+                </main>
+
+                {/* 自訂彈出視窗 */}
+                {dialogState.type && (
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-sm w-full fade-in zoom-in">
+                        <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        {dialogState.type === 'alert' ? <i className="fa-solid fa-circle-exclamation text-rose-500"></i> : <i className="fa-solid fa-trophy text-yellow-500"></i>}
+                        {dialogState.type === 'alert' ? '系統提示' : '結算確認'}
+                        </h3>
+                        <p className="text-slate-600 whitespace-pre-wrap mb-8 text-lg">{dialogState.message}</p>
+                        <div className="flex gap-3 justify-end">
+                        {dialogState.type === 'confirm' && (
+                            <button
+                            onClick={closeDialog}
+                            className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                            >
+                            取消
+                            </button>
+                        )}
+                        <button
+                            onClick={dialogState.type === 'alert' ? closeDialog : confirmSettle}
+                            className="px-5 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-md"
+                        >
+                            確定
+                        </button>
+                        </div>
+                    </div>
+                    </div>
+                )}
+                </div>
+            );
+        }
+
+        // 渲染到網頁上的 Root 節點
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
